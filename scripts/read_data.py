@@ -1,13 +1,12 @@
 # %%
 import h5py as h5
 import numpy as np
-import gvar as gv
-from lametlat.utils.resampling import jackknife, bootstrap, bs_ls_avg
+from lametlat.utils.resampling import jackknife, bootstrap
 
 N_conf = 553
 tsep_ls = [4, 6, 8, 10, 12]
-
-N_bs_samp = 400
+bin = 5
+N_bs_samp = 200
 
 def bad_point_filter(data, threshold=1):
     """
@@ -45,12 +44,14 @@ def get_2pt_data(ss_sp, px, py, pz, jk_bs=None):
 
     """
 
-    if px == 4 or px == 5:
+    if px != 0 and py != 0:
         pt2_g0_file = f"../data/c2pt_AMA_qTMD/c2pt.CG100bxyp20_CG100bxyp20.{ss_sp}.proton_Tg0.PX{px}_PY{py}_PZ{pz}" # take Tg0
         pt2_g8_file = f"../data/c2pt_AMA_qTMD/c2pt.CG100bxyp20_CG100bxyp20.{ss_sp}.proton_Tg8.PX{px}_PY{py}_PZ{pz}" # take Tg8
     elif px == 0 and py == 0:
         pt2_g0_file = f"../data/mom_zero/c2pt_comb/c2pt.CG100bxyp00_CG100bxyp00.{ss_sp}.proton_Tg0.PX0_PY0_PZ0"
         pt2_g8_file = f"../data/mom_zero/c2pt_comb/c2pt.CG100bxyp00_CG100bxyp00.{ss_sp}.proton_Tg8.PX0_PY0_PZ0"
+    else:
+        print("Error: 2pt px and py input error!")
 
     # read csv file
     pt2_real = ( np.loadtxt(pt2_g0_file + ".real", skiprows=1, delimiter=",") + np.loadtxt(pt2_g8_file + ".real", skiprows=1, delimiter=",") ) / 2
@@ -73,8 +74,8 @@ def get_2pt_data(ss_sp, px, py, pz, jk_bs=None):
         return pt2_real_jk, pt2_imag_jk
     
     elif jk_bs == "bs":
-        pt2_real_bs, _ = bootstrap(pt2_real, samp_times=N_bs_samp, bin=1)
-        pt2_imag_bs, _ = bootstrap(pt2_imag, samp_times=N_bs_samp, bin=1)
+        pt2_real_bs, _ = bootstrap(pt2_real, samp_times=N_bs_samp, bin=bin)
+        pt2_imag_bs, _ = bootstrap(pt2_imag, samp_times=N_bs_samp, bin=bin)
 
         return pt2_real_bs, pt2_imag_bs
 
@@ -157,12 +158,12 @@ def get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs=None, flavor=None):
         return pt3_real_jk, pt3_imag_jk
     
     elif jk_bs == "bs":
-        pt3_real_bs, _ = bootstrap(pt3_real, samp_times=N_bs_samp, bin=1)
-        pt3_imag_bs, _ = bootstrap(pt3_imag, samp_times=N_bs_samp, bin=1)
+        pt3_real_bs, _ = bootstrap(pt3_real, samp_times=N_bs_samp, bin=bin)
+        pt3_imag_bs, _ = bootstrap(pt3_imag, samp_times=N_bs_samp, bin=bin)
 
         return pt3_real_bs, pt3_imag_bs
 
-def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", flavor=None):
+def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", flavor=None):
     """
     Calculate the ratio of 3pt correlators to 2pt correlators.
 
@@ -212,7 +213,7 @@ def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", flavor=None):
     return np.array(ra_real), np.array(ra_imag)
     # * shape = ( N_samp, len(tsep_ls), 16 )
 
-def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", tau_cut=1, flavor=None):
+def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", tau_cut=1, flavor=None):
     """
     Calculate the sum of the ratio data over the tau axis.
 
@@ -249,3 +250,15 @@ def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", tau_cut=1, flavor=None):
 
     return sum_real, sum_imag
 
+def get_fh_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", tau_cut=1, flavor=None):
+    """
+    Calculate the FH data, FH = sum(t + 1) - sum(t)
+    """
+    sum_real, sum_imag = get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs=jk_bs, tau_cut=tau_cut, flavor=flavor)
+    
+    tsep_gap = tsep_ls[1] - tsep_ls[0]
+    
+    fh_real = (sum_real[:, 1:] - sum_real[:, :-1]) / tsep_gap
+    fh_imag = (sum_imag[:, 1:] - sum_imag[:, :-1]) / tsep_gap
+
+    return fh_real, fh_imag
