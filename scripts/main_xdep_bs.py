@@ -5,9 +5,8 @@ import glob
 import numpy as np
 import gvar as gv
 import pandas as pd
-from multiprocessing import current_process
+import multiprocessing as mp
 from tqdm.auto import tqdm
-from joblib import Parallel, delayed
 from lametlat.utils.log import set_up_log
 from lametlat.utils.funcs import add_error_to_sample
 from lametlat.extrapolation.lambda_extrapolation import (
@@ -191,11 +190,7 @@ if __name__ == "__main__":
     xmax = 2.00049
     x_ls = np.linspace(xmin, xmax, nn)
 
-    def wrapper_extrap_ft(px, b, zs, n_jobs):
-        if n_jobs > 1:
-            process_id = current_process()._identity[0] - 1  # Process IDs start from 1
-            set_up_log(f"../log/extrapolation/main_bs_process{process_id}.log")
-
+    def wrapper_extrap_ft(px, b, zs):
         renorm_quasi = gv.load(
             f"../cache/renorm_quasi_p45_b0_zs{zs}_{fit_method}.dat"
         )  # note the shape of the data is (zmax, N_samp)
@@ -226,9 +221,9 @@ if __name__ == "__main__":
         return result
 
     loop_params = [(px, b, zs) for px in p_ls for zs in zs_ls]
-    results = Parallel(n_jobs=n_jobs)(
-        delayed(wrapper_extrap_ft)(px, b, zs, n_jobs) for px, b, zs in loop_params
-    )
+    with mp.Pool(processes=n_jobs) as pool:
+        params = [(px, b, zs, n_jobs) for px, b, zs in loop_params]
+        results = list(tqdm(pool.starmap(wrapper_extrap_ft, params), total=len(params)))
 
     xdep_collection = {}
     for (px, b, zs), result in zip(loop_params, results):

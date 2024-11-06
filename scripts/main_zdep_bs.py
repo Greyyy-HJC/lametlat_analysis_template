@@ -3,7 +3,7 @@ import os
 import glob
 import numpy as np
 import gvar as gv
-from joblib import Parallel, delayed
+import multiprocessing as mp
 from read_data import get_2pt_data, get_ratio_data, get_sum_data, get_fh_data
 from lametlat.gsfit.pt2_fit import pt2_two_state_fit
 from lametlat.gsfit.ratio_fit import ra_two_state_fit
@@ -12,7 +12,6 @@ from lametlat.gsfit.fh_fit import fh_one_state_fit
 from lametlat.utils.funcs import add_error_to_sample
 from lametlat.utils.log import set_up_log
 from tqdm.auto import tqdm
-from multiprocessing import current_process
 
 
 a = 0.06
@@ -26,10 +25,7 @@ N_samp = 200
 set_up_log("../log/gsfit/main_bs.log")
 
 
-def wrapper_ratio_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
-    if n_jobs > 1:
-        process_id = current_process()._identity[0] - 1 # Process IDs start from 1
-        set_up_log(f"../log/gsfit/main_bs_process{process_id}.log")
+def wrapper_ratio_fit(px, b, z, fit_tsep_ls, tau_cut):
     
     py = px
     pz = 0
@@ -67,12 +63,7 @@ def wrapper_ratio_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
     
     return bare_quasi_dic
 
-def wrapper_sum_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
-    # Get the current process ID
-    if n_jobs > 1:
-        process_id = current_process()._identity[0] - 1 # Process IDs start from 1
-        set_up_log(f"../log/gsfit/main_bs_process{process_id}.log")
-    
+def wrapper_sum_fit(px, b, z, fit_tsep_ls, tau_cut):
     py = px
     pz = 0
     
@@ -104,12 +95,7 @@ def wrapper_sum_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
 
     return bare_quasi_dic
     
-def wrapper_sum_two_state_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
-    # Get the current process ID
-    if n_jobs > 1:
-        process_id = current_process()._identity[0] - 1 # Process IDs start from 1
-        set_up_log(f"../log/gsfit/main_bs_process{process_id}.log")
-    
+def wrapper_sum_two_state_fit(px, b, z, fit_tsep_ls, tau_cut):
     py = px
     pz = 0
     
@@ -148,12 +134,7 @@ def wrapper_sum_two_state_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
 
     return bare_quasi_dic
     
-def wrapper_fh_fit(px, b, z, fit_tsep_ls, tau_cut, n_jobs):
-    # Get the current process ID
-    if n_jobs > 1:
-        process_id = current_process()._identity[0] - 1 # Process IDs start from 1
-        set_up_log(f"../log/gsfit/main_bs_process{process_id}.log")
-    
+def wrapper_fh_fit(px, b, z, fit_tsep_ls, tau_cut):
     py = px
     pz = 0
     
@@ -190,10 +171,12 @@ if __name__ == "__main__":
     fit_method = "sum_81012"  # "sum_81012" or "sum_two_state_681012"
     
     # * Zero momentum
-    if False:
+    if True:
         loop_params = [(b, z) for z in range(zmax)]
         
-        results = Parallel(n_jobs=n_jobs)(delayed(wrapper_sum_fit)(px=0, b=b, z=z, fit_tsep_ls=[8, 10, 12], tau_cut=2, n_jobs=n_jobs) for b, z in tqdm(loop_params, desc="Loop in b, z"))
+        with mp.Pool(processes=n_jobs) as pool:
+            params = [(0, b, z, [8, 10, 12], 2, n_jobs) for b, z in loop_params]
+            results = list(tqdm(pool.starmap(wrapper_sum_fit, params), total=len(params)))
         
         bare_p0 = {"re": [], "im": []}
         for (b, z), (result) in zip(loop_params, results):
@@ -213,12 +196,15 @@ if __name__ == "__main__":
     if True:
         loop_params = [(px, b, z) for px in p_ls for z in range(zmax)]
         
-        if fit_method == "sum_81012":
-            results = Parallel(n_jobs=n_jobs)(delayed(wrapper_sum_fit)(px, b, z, fit_tsep_ls=[8, 10, 12], tau_cut=2, n_jobs=n_jobs) for px, b, z in tqdm(loop_params, desc="Loop in px, b, z"))
-        elif fit_method == "sum_two_state_681012":
-            results = Parallel(n_jobs=n_jobs)(delayed(wrapper_sum_two_state_fit)(px, b, z, fit_tsep_ls=[6, 8, 10, 12], tau_cut=2, n_jobs=n_jobs) for px, b, z in tqdm(loop_params, desc="Loop in px, b, z"))
-        else:
-            raise ValueError(f"Unknown fit method: {fit_method}")
+        with mp.Pool(processes=n_jobs) as pool:
+            if fit_method == "sum_81012":
+                params = [(px, b, z, [8, 10, 12], 2, n_jobs) for px, b, z in loop_params]
+                results = list(tqdm(pool.starmap(wrapper_sum_fit, params), total=len(params)))
+            elif fit_method == "sum_two_state_681012":
+                params = [(px, b, z, [6, 8, 10, 12], 2, n_jobs) for px, b, z in loop_params]
+                results = list(tqdm(pool.starmap(wrapper_sum_two_state_fit, params), total=len(params)))
+            else:
+                raise ValueError(f"Unknown fit method: {fit_method}")
         
         bare_quasi = {f"{part}_p{px}": [] for px in p_ls for part in ["re", "im"]}
         bare_quasi_norm = {f"{part}_p{px}": [] for px in p_ls for part in ["re", "im"]}
