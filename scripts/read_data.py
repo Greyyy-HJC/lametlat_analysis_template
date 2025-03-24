@@ -1,10 +1,15 @@
 # %%
 import h5py as h5
 import numpy as np
+import gvar as gv
 from lametlat.utils.resampling import jackknife, bootstrap
 
+a = 0.06 # fm
+mpi = 0.3 # GeV
+Ls = 48
+Lt = 64
 N_conf = 553
-tsep_ls = [4, 6, 8, 10, 12]
+tsep_ls = [6, 8, 10, 12]
 bin = 5
 N_bs_samp = 200
 
@@ -44,18 +49,14 @@ def get_2pt_data(ss_sp, px, py, pz, jk_bs=None):
 
     """
 
-    if px != 0 and py != 0:
-        pt2_g0_file = f"../data/c2pt_AMA_qTMD/c2pt.CG100bxyp20_CG100bxyp20.{ss_sp}.proton_Tg0.PX{px}_PY{py}_PZ{pz}" # take Tg0
-        pt2_g8_file = f"../data/c2pt_AMA_qTMD/c2pt.CG100bxyp20_CG100bxyp20.{ss_sp}.proton_Tg8.PX{px}_PY{py}_PZ{pz}" # take Tg8
-    elif px == 0 and py == 0:
-        pt2_g0_file = f"../data/mom_zero/c2pt_comb/c2pt.CG100bxyp00_CG100bxyp00.{ss_sp}.proton_Tg0.PX0_PY0_PZ0"
-        pt2_g8_file = f"../data/mom_zero/c2pt_comb/c2pt.CG100bxyp00_CG100bxyp00.{ss_sp}.proton_Tg8.PX0_PY0_PZ0"
+    if px == 3:
+        pt2_file = f"../data/c2pt_comb/c2pt.CG52bxyp20_CG52bxyp20.{ss_sp}.meson_g15.PX{px}_PY{py}_PZ{pz}"
     else:
-        print("Error: 2pt px and py input error!")
+        pt2_file = f"../data/c2pt_comb/c2pt.CG52bxyp30_CG52bxyp30.{ss_sp}.meson_g15.PX{px}_PY{py}_PZ{pz}"
 
     # read csv file
-    pt2_real = ( np.loadtxt(pt2_g0_file + ".real", skiprows=1, delimiter=",") + np.loadtxt(pt2_g8_file + ".real", skiprows=1, delimiter=",") ) / 2
-    pt2_imag = ( np.loadtxt(pt2_g0_file + ".imag", skiprows=1, delimiter=",") + np.loadtxt(pt2_g8_file + ".imag", skiprows=1, delimiter=",") ) / 2
+    pt2_real = np.loadtxt(pt2_file + ".real", skiprows=1, delimiter=",")
+    pt2_imag = np.loadtxt(pt2_file + ".imag", skiprows=1, delimiter=",")
 
 
     # the idx 0 on axis 1 is the time slice, so we remove it and swap axes to make configurations on axis 0
@@ -79,7 +80,7 @@ def get_2pt_data(ss_sp, px, py, pz, jk_bs=None):
 
         return pt2_real_bs, pt2_imag_bs
 
-def get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs=None, flavor=None):
+def get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs=None):
     """
     Retrieve 3-point correlation function data from a file.
 
@@ -100,44 +101,17 @@ def get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs=None, flavor=None):
     """
     
     if px == 4 or px == 5:
-        pt3_U_xyplus_file = f"../data/g8/qpdf.SS.ama.proton_posSxyplus.U.CG100bxyp20_CG100bxyp20.PX{px}_PY{py}_PZ{pz}.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-
-        pt3_U_xyminus_file = f"../data/g8/qpdf.SS.ama.proton_posSxyminus.U.CG100bxyp20_CG100bxyp20.PX{px}_PY{py}_PZ{pz}.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-
-        pt3_D_xyplus_file = f"../data/g8/qpdf.SS.ama.proton_posSxyplus.D.CG100bxyp20_CG100bxyp20.PX{px}_PY{py}_PZ{pz}.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-
-        pt3_D_xyminus_file = f"../data/g8/qpdf.SS.ama.proton_posSxyminus.D.CG100bxyp20_CG100bxyp20.PX{px}_PY{py}_PZ{pz}.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-    elif px == 0 and py == 0:
-        pt3_U_xyplus_file = f"../data/mom_zero/g8/qpdf.SS.ama.proton_posSxyplus.U.CG100bxyp00_CG100bxyp00.PX0_PY0_PZ0.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-
-        pt3_U_xyminus_file = f"../data/mom_zero/g8/qpdf.SS.ama.proton_posSxyminus.U.CG100bxyp00_CG100bxyp00.PX0_PY0_PZ0.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-
-        pt3_D_xyplus_file = f"../data/mom_zero/g8/qpdf.SS.ama.proton_posSxyplus.D.CG100bxyp00_CG100bxyp00.PX0_PY0_PZ0.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
-
-        pt3_D_xyminus_file = f"../data/mom_zero/g8/qpdf.SS.ama.proton_posSxyminus.D.CG100bxyp00_CG100bxyp00.PX0_PY0_PZ0.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
+        pt3_file = f"../data/c3pt_h5/qpdf.SS.meson.ama.CG52bxyp30_CG52bxyp30.PX{px}_PY{py}_PZ{pz}.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
+    elif px == 3:
+        pt3_file = f"../data/c3pt_h5/qpdf.SS.meson.ama.CG52bxyp20_CG52bxyp20.PX{px}_PY{py}_PZ{pz}.Z0-24.XY0-24.g8.qx0_qy0_qz0.h5"
 
     else:
-        print(">>> We only have PX=PY=0 or PX=PY=4 and PX=PY=5 data now.")
+        print(">>> We only have PX=PY=3, PX=PY=4 and PX=PY=5 data now.")
 
     pt3_data = []
     for tsep in tsep_ls:
-        data_U_xyplus = h5.File(pt3_U_xyplus_file, "r")[f"dt{tsep}"][f"Z{b}"][f"XY{z}"][:] # * Note here z = 1 means x = y = 1, i.e. the real separation is np.sqrt(2)
-        data_U_xyminus = h5.File(pt3_U_xyminus_file, "r")[f"dt{tsep}"][f"Z{b}"][f"XY{z}"][:]
-        data_D_xyplus = h5.File(pt3_D_xyplus_file, "r")[f"dt{tsep}"][f"Z{b}"][f"XY{z}"][:]
-        data_D_xyminus = h5.File(pt3_D_xyminus_file, "r")[f"dt{tsep}"][f"Z{b}"][f"XY{z}"][:]
-
-        if flavor == None:
-            data_xyplus = data_U_xyplus - data_D_xyplus
-            data_xyminus = data_U_xyminus - data_D_xyminus
-        elif flavor == "U":
-            data_xyplus = data_U_xyplus
-            data_xyminus = data_U_xyminus
-        elif flavor == "D":
-            data_xyplus = data_D_xyplus
-            data_xyminus = data_D_xyminus
-
-        pt3_data.append( (data_xyplus + data_xyminus) / 2 )
-
+        data = h5.File(pt3_file, "r")[f"dt{tsep}"][f"Z{b}"][f"XY{z}"][:] # * Note here z = 1 means x = y = 1, i.e. the real separation is np.sqrt(2)
+        pt3_data.append(data)
 
     pt3_data = np.array(pt3_data)
     pt3_data = np.swapaxes(pt3_data, 0, 2)
@@ -163,7 +137,7 @@ def get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs=None, flavor=None):
 
         return pt3_real_bs, pt3_imag_bs
 
-def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", flavor=None):
+def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="bs"):
     """
     Calculate the ratio of 3pt correlators to 2pt correlators.
 
@@ -183,10 +157,10 @@ def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", flavor=None):
     # * take 2pt_ss as the denominator, do the ratio on each sample
     if jk_bs == "jk":
         pt2_real, pt2_imag = get_2pt_data("SS", px, py, pz, jk_bs="jk")
-        pt3_real, pt3_imag = get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", flavor=flavor)
+        pt3_real, pt3_imag = get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs="jk")
     elif jk_bs == "bs":
         pt2_real, pt2_imag = get_2pt_data("SS", px, py, pz, jk_bs="bs")
-        pt3_real, pt3_imag = get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", flavor=flavor)
+        pt3_real, pt3_imag = get_3pt_data(px, py, pz, b, z, tsep_ls, jk_bs="bs")
 
     ra_real = []
     ra_imag = []
@@ -201,10 +175,7 @@ def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", flavor=None):
             pt2_complex = pt2_real[n][tsep] + 1j * pt2_imag[n][tsep]
             pt3_complex = pt3_real[n][id] + 1j * pt3_imag[n][id]
             # * use complex divide complex to get ratio
-            
-            #! kind of weird, but directly divide the complex number gives infinities
-            # ra_complex = pt3_complex / pt2_complex
-            ra_complex = np.array([pt3 / pt2_complex for pt3 in pt3_complex]) 
+            ra_complex = pt3_complex / pt2_complex
 
             ra_real[n].append(np.real(ra_complex))
             ra_imag[n].append(np.imag(ra_complex))
@@ -213,7 +184,7 @@ def get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", flavor=None):
     return np.array(ra_real), np.array(ra_imag)
     # * shape = ( N_samp, len(tsep_ls), 16 )
 
-def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", tau_cut=1, flavor=None):
+def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", tau_cut=1):
     """
     Calculate the sum of the ratio data over the tau axis.
 
@@ -231,7 +202,7 @@ def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", tau_cut=1, flavor=None):
         tuple: A tuple containing the sum of the real and imaginary parts of the ratio data.
                The shape of each element in the tuple is (N_samp, len(tsep_ls)).
     """
-    ra_real, ra_imag = get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs=jk_bs, flavor=flavor)
+    ra_real, ra_imag = get_ratio_data(px, py, pz, b, z, tsep_ls, jk_bs=jk_bs)
 
     sum_real, sum_imag = [], []
 
@@ -250,11 +221,11 @@ def get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs="bs", tau_cut=1, flavor=None):
 
     return sum_real, sum_imag
 
-def get_fh_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", tau_cut=1, flavor=None):
+def get_fh_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", tau_cut=1):
     """
     Calculate the FH data, FH = sum(t + 1) - sum(t)
     """
-    sum_real, sum_imag = get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs=jk_bs, tau_cut=tau_cut, flavor=flavor)
+    sum_real, sum_imag = get_sum_data(px, py, pz, b, z, tsep_ls, jk_bs=jk_bs, tau_cut=tau_cut)
     
     tsep_gap = tsep_ls[1] - tsep_ls[0]
     
@@ -262,3 +233,5 @@ def get_fh_data(px, py, pz, b, z, tsep_ls, jk_bs="jk", tau_cut=1, flavor=None):
     fh_imag = (sum_imag[:, 1:] - sum_imag[:, :-1]) / tsep_gap
 
     return fh_real, fh_imag
+
+# %%
